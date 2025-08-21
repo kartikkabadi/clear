@@ -3,13 +3,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
+    "dev:whop": "whop-dev-proxy --target http://localhost:3000 --port 3001",
     "build": "next build",
     "start": "next start -p 3000"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.45.4",
+    "@whop/api": "^0.2.0",
     "next": "14.2.5",
     "react": "18.3.1",
     "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@whop-apps/dev-proxy": "^0.1.0"
   }
 }

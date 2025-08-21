@@ -26,13 +26,23 @@ export default function Page() {
   const [tasks, setTasks] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState(supabase ? "cloud" : "local"); // local if no env set
+  const [mode, setMode] = useState("local");
+  const [entitlement, setEntitlement] = useState({ hasPro: false, userId: null });
 
   // local storage key
   const lsKey = `clear_tasks_${date}`;
 
   useEffect(() => {
-    if (mode === "local") {
+    // Fetch Whop entitlement (works in Whop env or via dev proxy)
+    (async () => {
+      try {
+        const res = await fetch("/api/whop/entitlement");
+        const json = await res.json();
+        setEntitlement({ hasPro: Boolean(json?.hasPro), userId: json?.userId || null });
+      } catch {}
+    })();
+
+    if (mode === "local" || !entitlement.hasPro || !supabase) {
       const raw = localStorage.getItem(lsKey);
       setTasks(raw ? JSON.parse(raw) : []);
       return;
@@ -55,6 +65,10 @@ export default function Page() {
     setTasks(next);
     if (mode === "local") {
       localStorage.setItem(lsKey, JSON.stringify(next));
+      return;
+    }
+    if (!entitlement.hasPro || !supabase) {
+      alert("Cloud sync requires Pro access via Whop.");
       return;
     }
     const payload = { user_id: userId, date, tasks: next };
@@ -94,10 +108,32 @@ export default function Page() {
         <section style={{ padding:16, background:"#111116", borderRadius:16, boxShadow:"0 0 0 1px #1f1f24 inset" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
             <h2 style={{ margin:0, fontSize:18 }}>Your Tasks</h2>
-            <select value={mode} onChange={e=>setMode(e.target.value)} style={{ background:"#1a1a22", color:"#fff", border:"1px solid #2b2b33", borderRadius:8, padding:"6px 8px" }}>
-              <option value="local">Free (Local only)</option>
-              <option value="cloud">Pro (Cloud sync)</option>
-            </select>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <select
+                value={mode}
+                onChange={e=>setMode(e.target.value)}
+                style={{ background:"#1a1a22", color:"#fff", border:"1px solid #2b2b33", borderRadius:8, padding:"6px 8px" }}
+              >
+                <option value="local">Free (Local only)</option>
+                {supabase ? (
+                  entitlement.hasPro ? (
+                    <option value="cloud">Pro (Cloud sync)</option>
+                  ) : (
+                    <option value="cloud" disabled>Pro (Cloud sync)</option>
+                  )
+                ) : null}
+              </select>
+              {!entitlement.hasPro && (
+                <a
+                  href={process.env.NEXT_PUBLIC_WHOP_CHECKOUT_URL || "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ background:"#7c3aed", color:"#fff", border:"none", borderRadius:10, padding:"6px 10px", cursor:"pointer", textDecoration:"none" }}
+                >
+                  Upgrade on Whop
+                </a>
+              )}
+            </div>
           </div>
 
           <div style={{ display:"flex", gap:8, marginTop:12 }}>
@@ -162,11 +198,24 @@ export default function Page() {
               <ul style={{ margin:"0 0 8px 18px" }}>
                 <li>Cloud sync (Supabase)</li>
                 <li>Access your tasks anywhere</li>
+                <li>Access granted via Whop</li>
               </ul>
               <strong>₹499/month</strong>
-              <p style={{ opacity:0.8, marginTop:8, fontSize:13 }}>
-                (For now, toggle “Pro (Cloud sync)” above and set Supabase keys in Vercel. Payments can be added later.)
-              </p>
+              <div style={{ marginTop:8, display:"flex", gap:8 }}>
+                <a
+                  href={process.env.NEXT_PUBLIC_WHOP_CHECKOUT_URL || "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ background:"#7c3aed", color:"#fff", border:"none", borderRadius:10, padding:"8px 12px", cursor:"pointer", textDecoration:"none" }}
+                >
+                  Purchase on Whop
+                </a>
+                {!supabase && (
+                  <span style={{ fontSize:12, opacity:0.8 }}>
+                    Set Supabase keys to enable cloud sync
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </section>
